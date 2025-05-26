@@ -18,16 +18,6 @@ This project implements a distributed file system inspired by systems like Googl
 ## Architecture Overview
 
 ### System Components
-// todo take a picture
-┌─────────┐     ┌───────────┐     ┌─────────────┐
-│  Client │◄───►│  Manager  │ ───►│ ChunkServer │
-└─────────┘     └───────────┘     └─────────────┘
-│                                   ▲
-│                                   │
-└───────────────────────────────────┘
-(Direct communication for
-chunk transfer/retrieval)
-
 
 The system consists of three main components:
 1. **Manager Node**: Central metadata server and coordinator
@@ -2265,6 +2255,175 @@ ErrorCorrection: Injected 3075 bit errors (actual error rate: 1.012%)
 Reed-Solomon: Detected and corrected 2970 symbol errors
 ✅ Retrieved chunk successfully - recovered from 3075 bit errors
 ```
+
+## Running the System
+
+The DFS system provides a command-line interface for running each component. All commands should be executed from the project directory.
+
+### System Startup Sequence
+
+**1. Start the Manager Node**
+```bash
+# Start manager on default port 9000 with error injection enabled
+./dfs manager --port 9000 --noise enabled
+
+# Or with error injection disabled for testing
+./dfs manager --port 9000 --noise disabled
+```
+
+**2. Start ChunkServer Nodes**
+```bash
+# Start multiple ChunkServers (each in a separate terminal)
+./dfs chunkserver --id 1 --manager-port 9000
+./dfs chunkserver --id 2 --manager-port 9000
+./dfs chunkserver --id 3 --manager-port 9000
+./dfs chunkserver --id 4 --manager-port 9000
+./dfs chunkserver --id 5 --manager-port 9000
+
+# ChunkServer IDs must be between 1-15 for binary tree topology
+```
+
+**3. Use Client for File Operations**
+```bash
+# Store a file in the distributed system
+./dfs client --manager-port 9000 --store /path/to/your/file.txt
+
+# Retrieve a file from the distributed system
+./dfs client --manager-port 9000 --retrieve file.txt
+```
+
+### Command Reference
+
+#### Manager Commands
+```bash
+./dfs manager --port <port> [--noise <enabled/disabled>]
+```
+- `--port`: Port number for Manager (default: 9000)
+- `--noise`: Enable/disable Reed-Solomon error injection (default: disabled)
+
+#### ChunkServer Commands
+```bash
+./dfs chunkserver --id <id> [--manager-port <port>]
+```
+- `--id`: ChunkServer ID (1-15, required)
+- `--manager-port`: Manager's port number (default: 9000)
+
+#### Client Commands
+```bash
+# Store operation
+./dfs client --manager-port <port> --store <file_path>
+
+# Retrieve operation  
+./dfs client --manager-port <port> --retrieve <filename>
+```
+- `--manager-port`: Manager's port number (required)
+- `--store`: Store the specified file path
+- `--retrieve`: Retrieve the specified filename
+
+### Example Usage Session
+
+**Terminal 1 - Manager:**
+```bash
+$ ./dfs manager --port 9000 --noise enabled
+Starting manager on port 9000
+Error correction configured:
+  - Noise level: 1 %
+  - Redundancy: 200 bytes
+  - Error injection: enabled
+Manager initialized successfully
+Listening for connections on port 9000
+```
+
+**Terminal 2 - ChunkServer 1:**
+```bash
+$ ./dfs chunkserver --id 1 --manager-port 9000
+Starting ChunkServer with ID 1
+ChunkServer 1 initialized at 192.168.1.100:9001
+Storage path: /Users/username/Documents/CHUNK-1
+Available space: 47234 MB
+Connected to Manager via TCP
+```
+
+**Terminal 3 - ChunkServer 2:**
+```bash
+$ ./dfs chunkserver --id 2 --manager-port 9000
+Starting ChunkServer with ID 2
+ChunkServer 2 initialized at 192.168.1.100:9002
+Storage path: /Users/username/Documents/CHUNK-2
+Available space: 47234 MB
+Connected to Manager via TCP
+```
+
+**Terminal 4 - Client Store:**
+```bash
+$ ./dfs client --manager-port 9000 --store test.txt
+Starting client connected to manager port 9000
+Client initialized successfully
+Connected to manager at 192.168.1.100:9000
+Storing file: test.txt
+File stored successfully
+Original file hash: a1b2c3d4e5f6789...
+```
+
+**Terminal 5 - Client Retrieve:**
+```bash
+$ ./dfs client --manager-port 9000 --retrieve test.txt
+Starting client connected to manager port 9000
+Client initialized successfully
+Connected to manager at 192.168.1.100:9000
+Retrieving file: test.txt
+Saving to: ./test.txt_retrieved
+File retrieved successfully
+✅ File integrity verified - retrieved file matches original
+```
+
+### System Configuration
+
+**Default Port Allocation:**
+- Manager: 9000
+- ChunkServer 1: 9001
+- ChunkServer 2: 9002
+- ...
+- ChunkServer 15: 9015
+
+**Storage Locations:**
+- ChunkServer storage: `~/Documents/CHUNK-{ID}/`
+- Retrieved files: Current directory with `_retrieved` suffix
+
+**Reed-Solomon Parameters:**
+- Field: GF(2^8)
+- Block size: 255 bytes
+- Data symbols: 55 bytes per block
+- Redundancy symbols: 200 bytes per block (t=200)
+- Error correction capability: Up to 100 symbol errors per block
+
+### Troubleshooting
+
+**Common Issues:**
+
+1. **Port already in use:**
+   ```bash
+   # Check what's using the port
+   lsof -i :9000
+   
+   # Use different port
+   ./dfs manager --port 9001
+   ```
+
+2. **ChunkServer cannot find Manager:**
+   ```bash
+   # Ensure Manager is running first
+   # Check firewall settings
+   # Verify port numbers match
+   ```
+
+3. **File not found during retrieve:**
+   ```bash
+   # Ensure file was stored successfully
+   # Check Manager logs for file registration
+   # Verify ChunkServers are online
+   ```
+   
 #### Results:
 
 Manager Initialization:
